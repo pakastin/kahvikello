@@ -1,150 +1,204 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="utf8">
+    <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Kahvikello</title>
+    <title>Coffee Time</title>
+    <!-- Bulma CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bulma/css/bulma.min.css"
+    >
     <style>
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, avenir next, avenir, segoe ui, helvetica neue, helvetica, Cantarell, Ubuntu, roboto, noto, arial, sans-serif; 
-        margin: 1.5rem;
+      .history-item {
+        cursor: pointer;
       }
-      input, button {
-        font: inherit;
+      .history-item:hover {
+        background-color: #f5f5f5;
       }
-      #history {
-        margin: 1rem 0;
-      }
-</style>
+    </style>
   </head>
   <body>
-    <h1>Kahvikello</h1>
-    <p>Syötä tähän nauttimasi kahviannokset, niin näet paljonko elimistössäsi on kofeiinia. Voit poistaa annoksen klikkaamalla sitä.</p>
-    <form>
-      <input type="datetime-local">
-      <button>☕️</button>
-    </form>
-    <p id="result"></p>
-    <p id="history-title" style="display: none;">Nautitut kupilliset:</p>
-    <ul id="history"></ul>
-    <button id="remove-all">Poista kaikki</button>
+    <!-- App -->
+    <section id="app" class="section m-5"></section>
+
+    <!-- ReDOM -->
+    <script src="https://redom.js.org/redom.min.js"></script>
     <script>
-      const $form = document.querySelector('form');
-      const $input = document.querySelector('input');
-      const $result = document.querySelector('#result');
-      const $historyTitle = document.querySelector('#history-title');
-      const $history = document.querySelector('#history');
-      const $removeAll = document.querySelector('#remove-all');
+      // Destructure functions
+      const { el, mount, setChildren, list, text, setAttr } = redom;
 
-      $input.value = datetimeLocal(new Date());
-
-      updateHistory(JSON.parse(localStorage.getItem('history') || '[]'));
-
-      $form.onsubmit = e => {
-        e.preventDefault();
-
-        const date = new Date($input.value);
-
-        if (date > Date.now()) {
-          return alert('Päivämäärä ei voi olla tulevaisuudessa');
-        }
-
-        const history = JSON.parse(localStorage.getItem('history') || '[]');
-
-        history.push(date);
-        localStorage.setItem('history', JSON.stringify(history));
-
-        updateHistory(history);
-      };
-
-      $removeAll.onclick = () => {
-        localStorage.removeItem('history');
-
-        updateHistory([]);
-      }
-
-      function calculateRemainingCaffeine (history, date) {
-        let total = 0;
-        for (const dateStr of history) {
-          const diff = (date.getTime() - new Date(dateStr).getTime()) / 1000 / 60 / 60;
-          total += 100 * Math.pow(0.5, (diff) / 5);
-        }
-        return Math.round(total);
-      }
-
-      function humanCaffeine (caffeine) {
-        const rounded = Math.round(caffeine / 10) / 10;
-        if (rounded) {
-          return `Elimistössäsi on nyt n. ${Math.round(caffeine / 10) / 10} kahvikupillista vastaava määrä kofeiinia.`;
-        } else {
-          return 'Elimistössäsi ei ole enää kofeiinia.';
-        }
-      }
-
-      function updateHistory (history) {
-        const reversed = history.slice().map(date => new Date(date)).sort((a, b) => b - a);
-        let traverse = $history.firstChild;
-
-        if (reversed.length) {
-          $historyTitle.style.display = '';
-          $removeAll.style.display = '';
-          $result.textContent = humanCaffeine(calculateRemainingCaffeine(history, new Date()));
-        } else {
-          $historyTitle.style.display = 'none';
-          $removeAll.style.display = 'none';
-          $result.textContent = '';
-        }
-
-
-        for (const date of reversed) {
-          const $item = (() => {
-            if (!traverse) {
-              traverse = document.createElement('li');
-              $history.appendChild(traverse);
-            }
-            return traverse
-          })();
-          $item.textContent = `${humanDate(date)} [x]`;
-          $item.onclick = () => {
-            const history = JSON.parse(localStorage.getItem('history'));
-            for (let i = 0; i < history.length; i++) {
-              if (datetimeLocal(new Date(history[i])) === datetimeLocal(date)) {
-                history.splice(i--, 1);
-                break;
-              }
-            }
-            localStorage.setItem('history', JSON.stringify(history));
-            updateHistory(history);
-          };
-          traverse = traverse.nextSibling;
-        }
- 
-        while (traverse) {
-          const next = traverse.nextSibling;
-          $history.removeChild(traverse);
-          traverse = next;
-        }
-      }
-
-      function datetimeLocal (date) {
+      /* Utility functions */
+      function datetimeLocal(date) {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
         const hours = String(date.getHours()).padStart(2, '0');
         const minutes = String(date.getMinutes()).padStart(2, '0');
-
         return `${year}-${month}-${day}T${hours}:${minutes}`;
       }
 
-      function humanDate (date) {
+      function humanDate(date) {
         const day = date.getDate();
         const month = date.getMonth() + 1;
         const year = date.getFullYear();
         const hours = String(date.getHours()).padStart(2, '0');
         const minutes = String(date.getMinutes()).padStart(2, '0');
-
         return `${day}.${month}.${year} ${hours}:${minutes}`;
       }
+
+      function calculateRemainingCaffeine(history, currentDate) {
+        let total = 0;
+        history.forEach(dateStr => {
+          const doseDate = new Date(dateStr);
+          const diffHours = (currentDate - doseDate) / (1000 * 60 * 60);
+          if (diffHours >= 0) {
+            total += 100 * Math.pow(0.5, diffHours / 5);
+          }
+        });
+        return Math.round(total);
+      }
+
+      function humanCaffeine(caffeine) {
+        const rounded = Math.round(caffeine / 10) / 10;
+        if (rounded) {
+          return `Your body now has the same amount of caffeine as about ${rounded} cups of coffee.`;
+        } else {
+          return 'There is no more caffeine in the body.';
+        }
+      }
+
+      // App state
+      let historyData = JSON.parse(localStorage.getItem('history') || '[]');
+
+      /* Create elements */
+
+      // Header
+      const header = el('header', { class: 'mb-5' }, [
+        el('h1.title', 'Coffee Time'),
+        el('p.subtitle', 'Enter the coffee portions to enjoy here, and you will see how much caffeine there is in the body. You can delete a dose by clicking on it.')
+      ]);
+
+      // Form
+      const form = el(
+        'form',
+        { class: 'field has-addons' },
+        [
+          el('div.control', [
+            el('input.input', {
+              type: 'datetime-local',
+              value: datetimeLocal(new Date()),
+              required: true
+            })
+          ]),
+          el('div.control', [
+            el('button.button.is-primary', { type: 'submit' }, '☕️')
+          ])
+        ]
+      );
+
+      // Result
+      const result = el('p', { class: 'mt-4' });
+
+      // History title
+      const historyTitle = el('p.title.is-5', { style: 'display: none;' }, 'Enjoyed cups:');
+
+      // History list
+      const historyList = el('ul', { class: 'list' }, []);
+
+      // Delete all
+      const removeAllButton = el(
+        'button.button.is-danger.remove-all-btn.mt-5.has-text-light',
+        { style: 'display: none;' },
+        'Delete All'
+      );
+
+      // Container
+      const container = el('div.container', [
+        header,
+        form,
+        result,
+        historyTitle,
+        historyList,
+        removeAllButton
+      ]);
+
+      // Mount App
+      mount(document.getElementById('app'), container);
+
+      // Update the result
+      function updateResult() {
+        const caffeine = calculateRemainingCaffeine(historyData, new Date());
+        result.textContent = humanCaffeine(caffeine);
+      }
+
+      // Update history
+      function updateHistory(data) {
+        historyData = data;
+        // Sort in descending
+        const sorted = [...historyData].map(date => new Date(date)).sort((a, b) => b - a);
+
+        if (sorted.length) {
+          historyTitle.style.display = '';
+          removeAllButton.style.display = '';
+          updateResult();
+        } else {
+          historyTitle.style.display = 'none';
+          removeAllButton.style.display = 'none';
+          result.textContent = '';
+        }
+
+        // Update history
+        setChildren(historyList, sorted.map(date => {
+          const listItem = el('li.box.history-item.is-flex.is-justify-content-space-between.is-align-items-center', [
+            el('span', humanDate(date)),
+            el('button.delete.is-large', {
+              onclick: () => {
+                const updatedHistory = historyData.filter(
+                  item => datetimeLocal(new Date(item)) !== datetimeLocal(date)
+                );
+                localStorage.setItem('history', JSON.stringify(updatedHistory));
+                updateHistory(updatedHistory);
+              }
+            })
+          ]);
+
+          return listItem;
+        }));
+      }
+
+      // Initial history
+      updateHistory(historyData);
+
+      // Submission handler
+      form.onsubmit = event => {
+        event.preventDefault();
+        const input = form.querySelector('input[type="datetime-local"]');
+        const date = new Date(input.value);
+
+        if (isNaN(date.getTime())) {
+          alert('Please enter a valid date and time.');
+          return;
+        }
+
+        if (date > new Date()) {
+          alert('The date cannot be in the future');
+          return;
+        }
+
+        historyData.push(date.toISOString());
+        localStorage.setItem('history', JSON.stringify(historyData));
+        updateHistory(historyData);
+        input.value = datetimeLocal(new Date());
+      };
+
+      // Remove all handler
+      removeAllButton.onclick = () => {
+        if (confirm('Are you sure you want to delete all entries ?')) {
+          localStorage.removeItem('history');
+          updateHistory([]);
+        }
+      };
     </script>
   </body>
-  </html>
+</html>
